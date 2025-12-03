@@ -4,6 +4,13 @@ export interface UserCredits {
   totalUsed: number;
 }
 
+export interface UserProfile {
+  id: string;
+  email: string;
+  role: 'user' | 'admin';
+  credits: number;
+}
+
 export enum AssetType {
   IMAGE = 'IMAGE',
   VIDEO = 'VIDEO'
@@ -16,6 +23,7 @@ export interface GeneratedAsset {
   prompt: string;
   createdAt: number;
   aspectRatio?: string;
+  userId?: string; // Added for Supabase
 }
 
 export interface GenerationConfig {
