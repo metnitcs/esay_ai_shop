@@ -1,13 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 
-// These should be set in your environment variables
-// For this demo, we assume they are available via process.env
-// If running locally, you might need to create a .env file or hardcode them temporarily (not recommended for production)
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_KEY || '';
+// Fallback values to prevent application crash if environment variables are missing.
+// This allows the app to load, though authentication will fail until keys are set.
+const supabaseUrl = process.env.SUPABASE_URL || 'https://placeholder.supabase.co';
+const supabaseKey = process.env.SUPABASE_KEY || 'placeholder-key';
 
-if (!supabaseUrl || !supabaseKey) {
-  console.warn("Supabase URL or Key is missing. Database features will not work.");
+if (!process.env.SUPABASE_URL || !process.env.SUPABASE_KEY) {
+  console.warn("Supabase credentials missing. App running in offline/demo mode (Auth will fail).");
 }
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
