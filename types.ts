@@ -38,6 +38,7 @@ export interface ProductInfo {
   description: string;
   price: string;
   targetAudience: string;
+  url?: string; // Optional URL from TikTok Shop/Shopee
   image: {
     data: string;
     mimeType: string;
@@ -50,6 +51,12 @@ export interface CharacterInfo {
   ethnicity: string;
   skinTone: string;
   bodyType: string;
+  referenceType?: 'product' | 'ai' | 'upload'; // Reference image selection
+  referenceImage?: {
+    data: string;
+    mimeType: string;
+    preview: string;
+  } | null;
   caption: {
     enabled: boolean;
     text: string;

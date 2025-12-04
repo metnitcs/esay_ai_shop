@@ -17,12 +17,12 @@ export const promptVeoAuth = async (): Promise<void> => {
   }
 };
 
-export const generateImage = async (prompt: string, aspectRatio: string, referenceImage?: { data: string, mimeType: string }): Promise<string> => {
+export const generateImage = async (prompt: string, aspectRatio: string, referenceImage?: { data: string, mimeType: string }, secondaryImage?: { data: string, mimeType: string }): Promise<string> => {
   // Always create a new instance to ensure latest keys are used
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  
+
   const parts: any[] = [];
-  
+
   if (referenceImage) {
     parts.push({
       inlineData: {
@@ -30,8 +30,24 @@ export const generateImage = async (prompt: string, aspectRatio: string, referen
         mimeType: referenceImage.mimeType
       }
     });
-    // When using reference image for product placement, we modify the prompt to be explicit
-    parts.push({ text: `Using the first image as a reference product, generate a photorealistic image based on this description: ${prompt}. Ensure the product from the reference image is featured prominently and looks natural.` });
+  }
+
+  if (secondaryImage) {
+    parts.push({
+      inlineData: {
+        data: secondaryImage.data,
+        mimeType: secondaryImage.mimeType
+      }
+    });
+  }
+
+  if (referenceImage || secondaryImage) {
+    // When using reference images, we modify the prompt to be explicit
+    let contextPrompt = `Using the provided image(s) as reference, generate a photorealistic image based on this description: ${prompt}.`;
+    if (referenceImage) contextPrompt += ` The first image is the product to be featured.`;
+    if (secondaryImage) contextPrompt += ` The second image is the character reference/style to match.`;
+
+    parts.push({ text: contextPrompt });
   } else {
     parts.push({ text: prompt });
   }
@@ -44,8 +60,8 @@ export const generateImage = async (prompt: string, aspectRatio: string, referen
     },
     config: {
       imageConfig: {
-        aspectRatio: aspectRatio as any, 
-        imageSize: "1K" 
+        aspectRatio: aspectRatio as any,
+        imageSize: "1K"
       }
     },
   });
@@ -94,18 +110,35 @@ export const generateVideo = async (prompt: string, aspectRatio: string, image?:
     payload.prompt = prompt;
   }
 
+  console.log("Starting video generation...", { prompt, hasImage: !!image });
   let operation = await ai.models.generateVideos(payload);
+  console.log("Initial operation:", operation);
 
-  // Polling loop
+  // Polling loop with timeout (e.g., 5 minutes max)
+  const startTime = Date.now();
+  const TIMEOUT_MS = 5 * 60 * 1000;
+
   while (!operation.done) {
+    if (Date.now() - startTime > TIMEOUT_MS) {
+      throw new Error("Video generation timed out after 5 minutes");
+    }
+
     await new Promise(resolve => setTimeout(resolve, 5000)); // Poll every 5s
+    console.log("Polling video status...");
     operation = await ai.operations.getVideosOperation({ operation: operation });
+    console.log("Poll result:", operation);
+  }
+
+  if (operation.error) {
+    console.error("Video generation operation error:", operation.error);
+    throw new Error(`Video generation failed: ${operation.error.message || JSON.stringify(operation.error)}`);
   }
 
   const videoUri = operation.response?.generatedVideos?.[0]?.video?.uri;
-  
+
   if (!videoUri) {
-    throw new Error("Video generation completed but no URI was returned.");
+    console.error("Full operation response:", JSON.stringify(operation, null, 2));
+    throw new Error("Video generation completed but no URI was returned. Check console for details.");
   }
 
   // Fetch the actual bytes to create a blob URL for playback
@@ -117,7 +150,7 @@ export const generateVideo = async (prompt: string, aspectRatio: string, image?:
 
 export const analyzeImage = async (prompt: string, image: { data: string, mimeType: string }): Promise<string> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  
+
   const response = await ai.models.generateContent({
     model: MODELS.ANALYSIS,
     contents: {
@@ -133,17 +166,19 @@ export const analyzeImage = async (prompt: string, image: { data: string, mimeTy
 
 export const generateScript = async (productName: string, productDesc: string, targetAudience: string): Promise<string> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+  const prompt = `เขียนสคริปต์วิดีโอ TikTok/UGC สั้นๆ น่าสนใจสำหรับสินค้าชื่อ "${productName}"
+  รายละเอียดสินค้า: "${productDesc}"
+  กลุ่มเป้าหมาย: "${targetAudience}"
   
-  const prompt = `Write a short, catchy TikTok/UGC video script for a product named "${productName}". 
-  Product Description: "${productDesc}". 
-  Target Audience: "${targetAudience}".
-  Keep it under 30 seconds. Split it into 2-3 short, punchy parts suitable for a fast-paced video.
-  Format it like: Part 1: [Text], Part 2: [Text]`;
+  ให้สคริปต์สั้นกระชับ ไม่เกิน 30 วินาที แบ่งเป็น 2-3 ส่วน เหมาะสำหรับวิดีโอจังหวะเร็ว
+  เขียนเป็นภาษาไทยที่เป็นกันเอง สไตล์ TikTok ดึงดูดความสนใจ
+  รูปแบบ: ส่วนที่ 1: [ข้อความ], ส่วนที่ 2: [ข้อความ]`;
 
   const response = await ai.models.generateContent({
     model: MODELS.ANALYSIS, // Using the text model
     contents: prompt
   });
 
-  return response.text || "Could not generate script.";
+  return response.text || "ไม่สามารถสร้างสคริปต์ได้";
 };

@@ -1,9 +1,11 @@
 
 export const COSTS = {
   IMAGE: 5,
-  VIDEO: 25,
+  VIDEO: 25, // per 8s clip
   ANALYSIS: 2,
-  TIKTOK_GENERATION: 35 // Bundle cost estimate
+  TIKTOK_GENERATION: 35, // Bundle cost estimate
+  VOICEOVER: 0.2, // per image
+  DIGITAL_VOICE: 5 // base + per clip
 };
 
 export const MODELS = {

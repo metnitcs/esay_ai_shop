@@ -8,29 +8,44 @@ const AuthPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setSuccessMessage(null);
 
     try {
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
-        if (error) throw error;
+        if (error) {
+          // Provide more helpful error messages
+          if (error.message.includes('Invalid login credentials')) {
+            throw new Error('อีเมลหรือรหัสผ่านไม่ถูกต้อง หรืออาจจะยังไม่ได้ยืนยันอีเมล');
+          }
+          throw error;
+        }
+        console.log('Login successful:', data);
       } else {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
         });
         if (error) throw error;
-        // Check if email confirmation is required based on Supabase settings
-        // But usually for demo purposes we assume auto-confirm or user checks email
+
+        // Check if email confirmation is required
+        if (data?.user && !data.session) {
+          setSuccessMessage('สมัครสมาชิกสำเร็จ! กรุณาตรวจสอบอีเมลเพื่อยืนยันบัญชี');
+        } else if (data?.session) {
+          setSuccessMessage('สมัครสมาชิกและเข้าสู่ระบบสำเร็จ!');
+        }
       }
     } catch (err: any) {
+      console.error('Auth error:', err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -97,6 +112,12 @@ const AuthPage: React.FC = () => {
             </div>
           )}
 
+          {successMessage && (
+            <div className="bg-green-500/10 border border-green-500/20 text-green-400 p-3 rounded-lg text-sm text-center">
+              {successMessage}
+            </div>
+          )}
+
           <button
             type="submit"
             disabled={loading}
@@ -121,7 +142,7 @@ const AuthPage: React.FC = () => {
           </button>
         </div>
       </div>
-      
+
       <p className="mt-8 text-xs text-zinc-600">
         By continuing, you agree to our Terms of Service and Privacy Policy.
       </p>

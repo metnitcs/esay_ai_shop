@@ -25,12 +25,12 @@ const App: React.FC = () => {
       try {
         const { data, error } = await supabase.auth.getSession();
         if (error) {
-           console.error("Session init error:", error);
-           // Don't block app, just show auth page
-           setLoading(false);
-           return;
+          console.error("Session init error:", error);
+          // Don't block app, just show auth page
+          setLoading(false);
+          return;
         }
-        
+
         setSession(data.session);
         if (data.session) {
           await fetchUserData(data.session.user.id);
@@ -51,7 +51,7 @@ const App: React.FC = () => {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       if (session) {
-         fetchUserData(session.user.id);
+        fetchUserData(session.user.id);
       } else {
         setUserProfile(null);
         setAssets([]);
@@ -69,6 +69,31 @@ const App: React.FC = () => {
         .select('*')
         .eq('id', userId)
         .single();
+
+      // If profile doesn't exist (user created before trigger), create it
+      if (error && error.code === 'PGRST116') {
+        console.log('Profile not found, creating new profile...');
+        const { data: user } = await supabase.auth.getUser();
+
+        const { data: newProfile, error: insertError } = await supabase
+          .from('profiles')
+          .insert([
+            {
+              id: userId,
+              email: user.user?.email,
+              credits: 20,
+              role: 'user'
+            }
+          ])
+          .select()
+          .single();
+
+        if (insertError) {
+          console.error('Failed to create profile:', insertError);
+        } else {
+          profile = newProfile;
+        }
+      }
 
       if (profile) {
         setUserProfile(profile);
@@ -98,7 +123,7 @@ const App: React.FC = () => {
 
   const handleDeductCredits = async (amount: number) => {
     if (!session?.user) return;
-    
+
     const newAmount = Math.max(0, credits - amount);
     setCredits(newAmount); // Optimistic
 
@@ -107,7 +132,7 @@ const App: React.FC = () => {
         .from('profiles')
         .update({ credits: newAmount })
         .eq('id', session.user.id);
-      
+
       if (error) throw error;
     } catch (e) {
       console.error("Failed to update credits", e);
@@ -141,13 +166,13 @@ const App: React.FC = () => {
   };
 
   const handleDeleteAsset = async (id: string) => {
-     setAssets(prev => prev.filter(a => a.id !== id)); // Optimistic
+    setAssets(prev => prev.filter(a => a.id !== id)); // Optimistic
 
-     try {
-       await supabase.from('assets').delete().eq('id', id);
-     } catch (e) {
-       console.error("Failed to delete", e);
-     }
+    try {
+      await supabase.from('assets').delete().eq('id', id);
+    } catch (e) {
+      console.error("Failed to delete", e);
+    }
   };
 
   const handleLogout = async () => {
@@ -165,13 +190,13 @@ const App: React.FC = () => {
   // Display helpful message if keys are missing (detected via placeholder domain usually, or just error state)
   if (connectionError) {
     return (
-       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-8 text-center">
-          <AlertTriangle className="w-12 h-12 text-yellow-500 mb-4" />
-          <h2 className="text-2xl font-bold text-white mb-2">Connection Error</h2>
-          <p className="text-zinc-400 max-w-md">
-            Could not connect to Supabase. Please ensure your <code>SUPABASE_URL</code> and <code>SUPABASE_KEY</code> environment variables are set correctly.
-          </p>
-       </div>
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-8 text-center">
+        <AlertTriangle className="w-12 h-12 text-yellow-500 mb-4" />
+        <h2 className="text-2xl font-bold text-white mb-2">Connection Error</h2>
+        <p className="text-zinc-400 max-w-md">
+          Could not connect to Supabase. Please ensure your <code>SUPABASE_URL</code> and <code>SUPABASE_KEY</code> environment variables are set correctly.
+        </p>
+      </div>
     );
   }
 
@@ -183,39 +208,39 @@ const App: React.FC = () => {
     switch (activeTab) {
       case 'tiktok-creator':
         return (
-           <TikTokCreator
-              credits={credits}
-              deductCredits={handleDeductCredits}
-              addAsset={handleAddAsset}
-           />
+          <TikTokCreator
+            credits={credits}
+            deductCredits={handleDeductCredits}
+            addAsset={handleAddAsset}
+          />
         );
       case 'create-image':
         return (
-          <ImageGenerator 
-            credits={credits} 
+          <ImageGenerator
+            credits={credits}
             deductCredits={handleDeductCredits}
             addAsset={handleAddAsset}
           />
         );
       case 'create-video':
         return (
-          <VideoGenerator 
-            credits={credits} 
+          <VideoGenerator
+            credits={credits}
             deductCredits={handleDeductCredits}
             addAsset={handleAddAsset}
           />
         );
       case 'analyze':
         return (
-          <ImageAnalyzer 
-             credits={credits}
-             deductCredits={handleDeductCredits}
+          <ImageAnalyzer
+            credits={credits}
+            deductCredits={handleDeductCredits}
           />
         );
       case 'gallery':
         return (
-          <Gallery 
-            assets={assets} 
+          <Gallery
+            assets={assets}
             deleteAsset={handleDeleteAsset}
           />
         );
@@ -228,15 +253,15 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-background overflow-hidden selection:bg-primary/30 selection:text-white">
-      <Sidebar 
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
+      <Sidebar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
         credits={credits}
         userEmail={session.user.email}
         userRole={userProfile?.role}
         onLogout={handleLogout}
       />
-      
+
       <main className="flex-1 overflow-y-auto relative bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-900 via-background to-background">
         <div className="min-h-full">
           {renderContent()}
