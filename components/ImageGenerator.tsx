@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, Image as ImageIcon, Loader2, AlertCircle } from 'lucide-react';
+import { Sparkles, Image as ImageIcon, Loader2, AlertCircle, Upload, X } from 'lucide-react';
 import { IMAGE_ASPECT_RATIOS, COSTS } from '../constants';
 import { generateImage } from '../services/geminiService';
 import { AssetType, GeneratedAsset } from '../types';
@@ -15,6 +15,25 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ credits, deductCredits,
   const [aspectRatio, setAspectRatio] = useState('1:1');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [referenceImage, setReferenceImage] = useState<{ data: string; mimeType: string; preview: string } | null>(null);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64data = reader.result as string;
+      const base64String = base64data.split(',')[1];
+
+      setReferenceImage({
+        data: base64String,
+        mimeType: file.type,
+        preview: base64data
+      });
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleGenerate = async () => {
     if (!prompt.trim()) return;
@@ -22,13 +41,17 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ credits, deductCredits,
       setError(`Insufficient credits. You need ${COSTS.IMAGE} credits.`);
       return;
     }
-    
+
     setLoading(true);
     setError(null);
 
     try {
-      const imageUrl = await generateImage(prompt, aspectRatio);
-      
+      const imageUrl = await generateImage(
+        prompt,
+        aspectRatio,
+        referenceImage ? { data: referenceImage.data, mimeType: referenceImage.mimeType } : undefined
+      );
+
       const newAsset: GeneratedAsset = {
         id: crypto.randomUUID(),
         type: AssetType.IMAGE,
@@ -70,7 +93,41 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ credits, deductCredits,
               placeholder="A futuristic cyberpunk city with neon lights, rain-slicked streets, cinematic lighting..."
               className="w-full h-40 bg-background border border-white/10 rounded-xl p-4 text-white placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none transition-all"
             />
-            
+
+            {/* Reference Image Upload */}
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-zinc-300 mb-2">รูปอ้างอิง (ไม่บังคับ)</label>
+              {referenceImage ? (
+                <div className="relative">
+                  <img
+                    src={referenceImage.preview}
+                    alt="Reference"
+                    className="w-full h-32 object-cover rounded-lg border border-white/10"
+                  />
+                  <button
+                    onClick={() => setReferenceImage(null)}
+                    className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-1.5 rounded-lg transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-white/10 rounded-lg cursor-pointer hover:border-primary/50 transition-colors">
+                  <Upload className="w-8 h-8 text-zinc-500 mb-2" />
+                  <span className="text-sm text-zinc-500">อัปโหลดรูปเพื่อใช้เป็นแรงบันดาลใจ</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                </label>
+              )}
+              <p className="text-xs text-zinc-500 mt-1">
+                💡 AI จะใช้รูปนี้เป็น reference สำหรับสไตล์และองค์ประกอบ
+              </p>
+            </div>
+
             <div className="flex justify-between items-center mt-4">
               <span className="text-xs text-zinc-500">Cost: {COSTS.IMAGE} Credits</span>
               <button
@@ -104,7 +161,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ credits, deductCredits,
         <div className="space-y-6">
           <div className="bg-surface border border-white/5 rounded-2xl p-6">
             <h3 className="text-lg font-semibold text-white mb-4">Settings</h3>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-zinc-400 mb-2">Aspect Ratio</label>
@@ -113,11 +170,10 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ credits, deductCredits,
                     <button
                       key={ratio.value}
                       onClick={() => setAspectRatio(ratio.value)}
-                      className={`px-3 py-2 rounded-lg text-xs border transition-all ${
-                        aspectRatio === ratio.value
+                      className={`px-3 py-2 rounded-lg text-xs border transition-all ${aspectRatio === ratio.value
                           ? 'bg-primary/20 border-primary text-white'
                           : 'bg-background border-white/5 text-zinc-400 hover:border-white/20'
-                      }`}
+                        }`}
                     >
                       {ratio.label}
                     </button>
@@ -130,7 +186,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ credits, deductCredits,
           <div className="bg-gradient-to-b from-primary/10 to-transparent border border-primary/20 rounded-2xl p-6">
             <h3 className="text-sm font-semibold text-primary mb-2">Pro Tip</h3>
             <p className="text-xs text-zinc-400 leading-relaxed">
-              For best results with Gemini 3 Pro, be descriptive about lighting (e.g., "cinematic lighting", "volumetric fog") and style (e.g., "oil painting", "photorealistic").
+              For best results with Gemini 3 Pro, be descriptive about lighting (e.g., "cinematic lighting", "volumetric fog") and style (e.g., "oil painting", "photorealistic"). Upload a reference image to guide the style!
             </p>
           </div>
         </div>
