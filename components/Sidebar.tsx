@@ -13,6 +13,7 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, credits, userEmail, userRole, onLogout }) => {
   const menuItems = [
     { id: 'tiktok-creator', label: 'TikTok Creator', icon: Clapperboard },
+    { id: 'comic-creator', label: 'Comic Creator', icon: Layers },
     { id: 'create-image', label: 'Image Gen', icon: ImageIcon },
     { id: 'create-video', label: 'Video Gen', icon: Video },
     { id: 'analyze', label: 'Image Analysis', icon: ScanEye },
@@ -40,11 +41,10 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, credits, use
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 group ${
-                isActive 
-                  ? 'bg-primary/10 text-primary border border-primary/20 shadow-[0_0_15px_rgba(124,58,237,0.1)]' 
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 group ${isActive
+                  ? 'bg-primary/10 text-primary border border-primary/20 shadow-[0_0_15px_rgba(124,58,237,0.1)]'
                   : 'text-zinc-400 hover:bg-white/5 hover:text-white'
-              }`}
+                }`}
             >
               <Icon className={`w-5 h-5 ${isActive ? 'text-primary' : 'text-zinc-500 group-hover:text-white'}`} />
               <span className="font-medium">{item.label}</span>
@@ -60,13 +60,13 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, credits, use
             <span className="text-xs font-bold text-accent">{credits} Available</span>
           </div>
           <div className="w-full bg-black/50 rounded-full h-1.5 mb-2 overflow-hidden">
-            <div 
-              className="bg-gradient-to-r from-primary to-accent h-1.5 rounded-full" 
+            <div
+              className="bg-gradient-to-r from-primary to-accent h-1.5 rounded-full"
               style={{ width: `${Math.min((credits / 100) * 100, 100)}%` }}
             ></div>
           </div>
         </div>
-        
+
         <div className="flex items-center space-x-3 px-2 py-2">
           <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-zinc-700 to-zinc-600 flex items-center justify-center text-xs font-bold text-white uppercase">
             {userEmail ? userEmail.substring(0, 2) : 'US'}
@@ -75,7 +75,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, credits, use
             <p className="text-sm font-medium text-white truncate">{userEmail || 'User'}</p>
             <p className="text-xs text-zinc-500 capitalize">{userRole || 'Free Plan'}</p>
           </div>
-          <button 
+          <button
             onClick={onLogout}
             className="text-zinc-500 hover:text-red-400 transition-colors"
             title="Logout"

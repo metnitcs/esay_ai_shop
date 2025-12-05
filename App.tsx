@@ -5,6 +5,7 @@ import ImageGenerator from './components/ImageGenerator';
 import VideoGenerator from './components/VideoGenerator';
 import ImageAnalyzer from './components/ImageAnalyzer';
 import TikTokCreator from './components/TikTokCreator';
+import ComicCreator from './components/ComicCreator';
 import Gallery from './components/Gallery';
 import AuthPage from './components/AuthPage';
 import AdminDashboard from './components/AdminDashboard';
@@ -209,6 +210,14 @@ const App: React.FC = () => {
       case 'tiktok-creator':
         return (
           <TikTokCreator
+            credits={credits}
+            deductCredits={handleDeductCredits}
+            addAsset={handleAddAsset}
+          />
+        );
+      case 'comic-creator':  // เพิ่ม case ใหม่นี้
+        return (
+          <ComicCreator
             credits={credits}
             deductCredits={handleDeductCredits}
             addAsset={handleAddAsset}

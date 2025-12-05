@@ -1,9 +1,10 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Box, Sparkles, Image as ImageIcon, Film, Video as VideoIcon, Upload, X, Check, ChevronRight, ChevronLeft, Loader2, Music, User, Download, RotateCcw, Layers } from 'lucide-react';
-import { ETHNICITIES, SKIN_TONES, BODY_TYPES, CAPTION_STYLES, COSTS } from '../constants';
+import { ETHNICITIES, SKIN_TONES, BODY_TYPES, CAPTION_STYLES, COSTS, PRODUCT_TYPES } from '../constants';
 import { GeneratedAsset, AssetType, ProductInfo, CharacterInfo, TikTokProject } from '../types';
 import { generateImage, generateScript, generateVideo, checkVeoAuth, promptVeoAuth } from '../services/geminiService';
+import { buildImagePrompt, buildVideoPrompt } from '../utils/promptBuilder';
 
 interface TikTokCreatorProps {
   credits: number;
@@ -20,7 +21,8 @@ const TikTokCreator: React.FC<TikTokCreatorProps> = ({ credits, deductCredits, a
       price: '',
       targetAudience: '',
       image: null,
-      url: '' // Optional URL from TikTok Shop/Shopee
+      url: '', // Optional URL from TikTok Shop/Shopee
+      productType: 'default'
     },
     character: {
       gender: 'female',
@@ -63,7 +65,7 @@ const TikTokCreator: React.FC<TikTokCreatorProps> = ({ credits, deductCredits, a
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 10 * 1024 * 1024) {
-        setError("Image size too large. Max 10MB.");
+        setError("ขนาดไฟล์ใหญ่เกินไป ใช้ได้สูงสุด 10MB");
         return;
       }
 
@@ -89,7 +91,7 @@ const TikTokCreator: React.FC<TikTokCreatorProps> = ({ credits, deductCredits, a
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 10 * 1024 * 1024) {
-        setError("Image size too large. Max 10MB.");
+        setError("ขนาดไฟล์ใหญ่เกินไป ใช้ได้สูงสุด 10MB");
         return;
       }
 
@@ -114,7 +116,7 @@ const TikTokCreator: React.FC<TikTokCreatorProps> = ({ credits, deductCredits, a
   const generateAssets = async () => {
     // Logic for Step 2 -> 3
     if (credits < COSTS.IMAGE * 3) {
-      setError(`Insufficient credits. Generating 3 variations costs ${COSTS.IMAGE * 3} credits.`);
+      setError(`เครดิตไม่เพียงพอ การสร้างภาพ 3 แบบใช้เครดิต ${COSTS.IMAGE * 3} เครดิต`);
       return;
     }
 
@@ -123,22 +125,17 @@ const TikTokCreator: React.FC<TikTokCreatorProps> = ({ credits, deductCredits, a
 
     try {
       // 1. Generate Script
-      const script = await generateScript(project.product.name, project.product.description, project.product.targetAudience);
+      const script = await generateScript(
+        project.product.name,
+        project.product.description,
+        project.product.targetAudience,
+        project.product.price,
+        project.character.gender,
+        project.character.ethnicity
+      );
 
-      // 2. Generate 3 Images
-      // Construct UGC-style prompt based on research
-      let basePrompt = `Authentic UGC TikTok-style product photo: A ${project.character.gender}, ${project.character.ethnicity} ethnicity, ${project.character.skinTone} skin, ${project.character.bodyType} build, naturally holding and showcasing ${project.product.name}. 
-
-Genuine happy expression, looking at camera with authentic smile. Casual everyday setting - cozy home interior, soft window light illuminating the scene. Natural lighting, golden hour glow. 
-
-Shot on iPhone 14 Pro, candid moment, unposed, realistic skin texture, slight depth of field. The product is clearly visible and well-lit. Warm, inviting atmosphere. Photorealistic, high quality, natural colors, no heavy filters.
-
-Vertical composition 9:16, eye-level angle, relatable and trustworthy vibe. Professional UGC creator aesthetic.`;
-
-      // Add caption if enabled
-      if (project.character.caption.enabled && project.character.caption.text) {
-        basePrompt += `\n\nInclude text overlay on the image: "${project.character.caption.text}". Style: ${project.character.caption.style}, position: ${project.character.caption.position}. The text should be clear, readable, and professionally integrated into the image.`;
-      }
+      // 2. Generate 3 Images with optimized prompts (one at a time to avoid rate limits)
+      let basePrompt = buildImagePrompt(project.product, project.character);
 
       // Prepare images
       const primaryImage = project.product.image ? { data: project.product.image.data, mimeType: project.product.image.mimeType } : undefined;
@@ -149,11 +146,19 @@ Vertical composition 9:16, eye-level angle, relatable and trustworthy vibe. Prof
         basePrompt += `\n\nIMPORTANT: Use the second image as a strict reference for the character's appearance (face, hair, style).`;
       }
 
-      const imagePromises = [1, 2, 3].map(() =>
-        generateImage(basePrompt, '9:16', primaryImage, secondaryImage)
-      );
+      // Generate images sequentially with delay to avoid rate limiting
+      const imageUrls: string[] = [];
+      for (let i = 0; i < 3; i++) {
+        console.log(`Generating image ${i + 1}/3...`);
+        const imageUrl = await generateImage(basePrompt, '9:16', primaryImage, secondaryImage);
+        imageUrls.push(imageUrl);
 
-      const imageUrls = await Promise.all(imagePromises);
+        // Add delay between images (except after last one)
+        if (i < 2) {
+          console.log(`Waiting 2 seconds before generating next image...`);
+          await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay
+        }
+      }
 
       const newAssets: GeneratedAsset[] = imageUrls.map(url => ({
         id: crypto.randomUUID(),
@@ -176,7 +181,7 @@ Vertical composition 9:16, eye-level angle, relatable and trustworthy vibe. Prof
       }));
 
     } catch (err: any) {
-      setError(err.message || "Failed to generate assets");
+      setError(err.message || "ไม่สามารถสร้างเนื้อหาได้ กรุณาลองใหม่อีกครั้ง");
     } finally {
       setLoading(false);
     }
@@ -214,7 +219,7 @@ Vertical composition 9:16, eye-level angle, relatable and trustworthy vibe. Prof
     try {
       // Find selected asset
       const selectedAsset = project.generatedImages.find(img => img.id === project.selectedImageIds[0]);
-      if (!selectedAsset) throw new Error("Selected image not found");
+      if (!selectedAsset) throw new Error("ไม่พบรูปภาพที่เลือก");
 
       // Generate video using the selected image as start frame
       const fetchImg = await fetch(selectedAsset.url);
@@ -233,9 +238,8 @@ Vertical composition 9:16, eye-level angle, relatable and trustworthy vibe. Prof
       for (let i = 0; i < clipCount; i++) {
         setGenerationProgress({ current: i + 1, total: clipCount });
 
-        // Prompt with Character Attributes & Thai Context (Safe Version)
-        const clipPrompt = `Cinematic UGC video: A ${project.character.gender}, ${project.character.ethnicity} ethnicity, ${project.character.skinTone} skin tone. Naturally holding and showing ${project.product.name}. 
-        Context: Thai creator, authentic local vibe. Friendly expression, slight movement, soft natural lighting. High quality, 4k, photorealistic.`;
+        // Use optimized video prompt with clip-specific focus
+        const clipPrompt = buildVideoPrompt(project.product, project.character, i + 1, clipCount, project.script);
 
         const clipUrl = await generateVideo(
           clipPrompt,
@@ -244,29 +248,35 @@ Vertical composition 9:16, eye-level angle, relatable and trustworthy vibe. Prof
         );
 
         videoClips.push(clipUrl);
+
+        // Add delay between API calls to avoid rate limiting (except after last clip)
+        if (i < clipCount - 1) {
+          console.log(`Waiting 3 seconds before generating next clip...`);
+          await new Promise(resolve => setTimeout(resolve, 3000)); // 3 second delay
+        }
       }
 
-      // For now, use the first clip (in future, could stitch them together)
-      const finalVideoUrl = videoClips[0]; // TODO: Implement video stitching
-
-      const newVideoAsset: GeneratedAsset = {
+      // Save ALL clips as separate assets
+      const videoAssets: GeneratedAsset[] = videoClips.map((url, index) => ({
         id: crypto.randomUUID(),
         type: AssetType.VIDEO,
-        url: finalVideoUrl,
-        prompt: `TikTok Video for ${project.product.name} (${clipCount} clips)`,
+        url: url,
+        prompt: `TikTok Video for ${project.product.name} - Clip ${index + 1}/${clipCount}`,
         createdAt: Date.now(),
         aspectRatio: '9:16'
-      };
+      }));
 
-      // Save asset
-      addAsset(newVideoAsset);
+      // Add all video assets to gallery
+      videoAssets.forEach(addAsset);
       deductCredits(totalCost);
-      setResultVideo(newVideoAsset);
+
+      // Set the first clip as the result to display
+      setResultVideo(videoAssets[0]);
       setProject(prev => ({ ...prev, step: 6 })); // Move to success step
 
     } catch (err: any) {
       console.error("Video generation error:", err);
-      setError(err.message || "Failed to generate video");
+      setError(err.message || "ไม่สามารถสร้างวิดีโอได้ กรุณาลองใหม่อีกครั้ง");
       setProject(prev => ({ ...prev, step: 4 })); // Go back to settings on error
     } finally {
       setLoading(false);
@@ -379,6 +389,26 @@ Vertical composition 9:16, eye-level angle, relatable and trustworthy vibe. Prof
               className="w-full h-28 bg-background border border-white/10 rounded-lg p-3 text-white focus:ring-1 focus:ring-primary focus:border-primary resize-none"
               placeholder="คุณสมบัติ ส่วนผสม ประโยชน์ ให้ละเอียด เพื่อ AI จะได้สร้างสคริปต์ที่ดี"
             />
+          </div>
+
+          {/* Product Type Selector */}
+          <div>
+            <label className="block text-sm font-medium text-zinc-300 mb-2">ประเภทสินค้า</label>
+            <p className="text-xs text-zinc-500 mb-3">เลือกให้ถูกต้องเพื่อ AI จะสร้างวิดีโอที่เหมาะสมกับสินค้า</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              {PRODUCT_TYPES.map(type => (
+                <button
+                  key={type.id}
+                  onClick={() => setProject(p => ({ ...p, product: { ...p.product, productType: type.id as any } }))}
+                  className={`text-xs py-2.5 px-3 rounded-lg border transition-all ${project.product.productType === type.id
+                    ? 'bg-white text-black border-white'
+                    : 'bg-transparent text-zinc-400 border-zinc-700 hover:border-zinc-500'
+                    }`}
+                >
+                  {type.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Price and Target Audience */}
@@ -525,81 +555,93 @@ Vertical composition 9:16, eye-level angle, relatable and trustworthy vibe. Prof
           )}
         </div>
 
-        {/* Gender */}
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-zinc-300 mb-2">เพศ</label>
-          <div className="grid grid-cols-2 gap-4">
-            {[{ id: 'male', label: 'ชาย' }, { id: 'female', label: 'หญิง' }].map(g => (
-              <button
-                key={g.id}
-                onClick={() => setProject(p => ({ ...p, character: { ...p.character, gender: g.id } }))}
-                className={`py-3 rounded-xl border font-medium transition-all ${project.character.gender === g.id
-                  ? 'bg-white text-black border-white'
-                  : 'bg-transparent text-zinc-400 border-zinc-700 hover:border-zinc-500'
-                  }`}
-              >
-                {g.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Dropdowns Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          <div>
-            <label className="block text-sm font-medium text-zinc-300 mb-2">เชื้อชาติ</label>
-            <div className="grid grid-cols-2 gap-2">
-              {ETHNICITIES.map(e => (
-                <button
-                  key={e.id}
-                  onClick={() => setProject(p => ({ ...p, character: { ...p.character, ethnicity: e.id } }))}
-                  className={`text-xs py-2 rounded-lg border transition-all ${project.character.ethnicity === e.id
-                    ? 'bg-white text-black border-white'
-                    : 'bg-transparent text-zinc-400 border-zinc-700 hover:border-zinc-500'
-                    }`}
-                >
-                  {e.label}
-                </button>
-              ))}
+        {/* Character Customization - Only show if NOT uploading reference image */}
+        {project.character.referenceType !== 'upload' && (
+          <>
+            {/* Gender */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-zinc-300 mb-2">เพศ</label>
+              <div className="grid grid-cols-2 gap-4">
+                {[{ id: 'male', label: 'ชาย' }, { id: 'female', label: 'หญิง' }].map(g => (
+                  <button
+                    key={g.id}
+                    onClick={() => setProject(p => ({ ...p, character: { ...p.character, gender: g.id } }))}
+                    className={`py-3 rounded-xl border font-medium transition-all ${project.character.gender === g.id
+                      ? 'bg-white text-black border-white'
+                      : 'bg-transparent text-zinc-400 border-zinc-700 hover:border-zinc-500'
+                      }`}
+                  >
+                    {g.label}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
 
-          <div>
-            <label className="block text-sm font-medium text-zinc-300 mb-2">สีผิว</label>
-            <div className="grid grid-cols-2 gap-2">
-              {SKIN_TONES.map(s => (
-                <button
-                  key={s.id}
-                  onClick={() => setProject(p => ({ ...p, character: { ...p.character, skinTone: s.id } }))}
-                  className={`text-xs py-2 rounded-lg border transition-all ${project.character.skinTone === s.id
-                    ? 'bg-white text-black border-white'
-                    : 'bg-transparent text-zinc-400 border-zinc-700 hover:border-zinc-500'
-                    }`}
-                >
-                  {s.label}
-                </button>
-              ))}
-            </div>
-          </div>
+            {/* Dropdowns Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-zinc-300 mb-2">เชื้อชาติ</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {ETHNICITIES.map(e => (
+                    <button
+                      key={e.id}
+                      onClick={() => setProject(p => ({ ...p, character: { ...p.character, ethnicity: e.id } }))}
+                      className={`text-xs py-2 rounded-lg border transition-all ${project.character.ethnicity === e.id
+                        ? 'bg-white text-black border-white'
+                        : 'bg-transparent text-zinc-400 border-zinc-700 hover:border-zinc-500'
+                        }`}
+                    >
+                      {e.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-zinc-300 mb-2">รูปร่าง</label>
-            <div className="grid grid-cols-3 gap-2">
-              {BODY_TYPES.map(b => (
-                <button
-                  key={b.id}
-                  onClick={() => setProject(p => ({ ...p, character: { ...p.character, bodyType: b.id } }))}
-                  className={`text-xs py-2 rounded-lg border transition-all ${project.character.bodyType === b.id
-                    ? 'bg-white text-black border-white'
-                    : 'bg-transparent text-zinc-400 border-zinc-700 hover:border-zinc-500'
-                    }`}
-                >
-                  {b.label}
-                </button>
-              ))}
+              <div>
+                <label className="block text-sm font-medium text-zinc-300 mb-2">สีผิว</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {SKIN_TONES.map(s => (
+                    <button
+                      key={s.id}
+                      onClick={() => setProject(p => ({ ...p, character: { ...p.character, skinTone: s.id } }))}
+                      className={`text-xs py-2 rounded-lg border transition-all ${project.character.skinTone === s.id
+                        ? 'bg-white text-black border-white'
+                        : 'bg-transparent text-zinc-400 border-zinc-700 hover:border-zinc-500'
+                        }`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-zinc-300 mb-2">รูปร่าง</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {BODY_TYPES.map(b => (
+                    <button
+                      key={b.id}
+                      onClick={() => setProject(p => ({ ...p, character: { ...p.character, bodyType: b.id } }))}
+                      className={`text-xs py-2 rounded-lg border transition-all ${project.character.bodyType === b.id
+                        ? 'bg-white text-black border-white'
+                        : 'bg-transparent text-zinc-400 border-zinc-700 hover:border-zinc-500'
+                        }`}
+                    >
+                      {b.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
+          </>
+        )}
+
+        {/* Show helper text when upload is selected */}
+        {project.character.referenceType === 'upload' && project.character.referenceImage && (
+          <div className="mb-6 p-4 bg-primary/10 border border-primary/30 rounded-xl">
+            <p className="text-sm text-primary">✨ AI จะใช้รูปที่คุณอัพโหลดเป็นตัวอ้างอิงสำหรับหน้าตาและสไตล์ของตัวละคร</p>
           </div>
-        </div>
+        )}
 
         {/* Caption Section */}
         <div className="border-t border-white/5 pt-6">
@@ -791,8 +833,8 @@ Vertical composition 9:16, eye-level angle, relatable and trustworthy vibe. Prof
           {/* Video Length Selector */}
           <div className="mb-8">
             <label className="block text-sm font-medium text-zinc-300 mb-4">ความยาววิดีโอ</label>
-            <div className="grid grid-cols-3 gap-4">
-              {[8, 16, 24].map((sec) => {
+            <div className="grid grid-cols-2 gap-4">
+              {[8, 16].map((sec) => {
                 const clips = sec / 8;
                 return (
                   <button
@@ -950,6 +992,15 @@ Vertical composition 9:16, eye-level angle, relatable and trustworthy vibe. Prof
 
   const renderStep6 = () => (
     <div className="max-w-4xl mx-auto animate-fade-in flex flex-col items-center">
+      {/* Success Header */}
+      <div className="text-center mb-8">
+        <div className="inline-flex items-center justify-center w-16 h-16 bg-green-500/20 rounded-full mb-4">
+          <Check className="w-8 h-8 text-green-400" />
+        </div>
+        <h2 className="text-3xl font-bold text-white mb-2">สร้างสำเร็จ! 🎉</h2>
+        <p className="text-zinc-400">วิดีโอ TikTok ของคุณพร้อมใช้งานแล้ว</p>
+      </div>
+
       <div className="w-full bg-surface border border-white/5 rounded-3xl p-8 mb-8 flex flex-col md:flex-row gap-8 items-center">
 
         {/* Video Player */}
@@ -966,7 +1017,7 @@ Vertical composition 9:16, eye-level angle, relatable and trustworthy vibe. Prof
             ) : (
               <div className="w-full h-full flex flex-col items-center justify-center text-zinc-500">
                 <VideoIcon className="w-12 h-12 mb-4 opacity-50" />
-                <p>UGC Style Video</p>
+                <p>วิดีโอสไตล์ UGC</p>
                 <p className="text-xs mt-2">คนจริงถือสินค้า + เสียงบรรยาย</p>
               </div>
             )}
@@ -981,6 +1032,74 @@ Vertical composition 9:16, eye-level angle, relatable and trustworthy vibe. Prof
                 <span>พร้อมเสียง</span>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Info & Actions */}
+        <div className="w-full md:w-1/2 space-y-6">
+          <div>
+            <h3 className="text-xl font-bold text-white mb-4">รายละเอียดวิดีโอ</h3>
+            <div className="space-y-3">
+              <div className="flex items-start gap-3">
+                <Box className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                <div>
+                  <div className="text-sm font-medium text-zinc-300">สินค้า</div>
+                  <div className="text-sm text-white">{project.product.name}</div>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <User className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                <div>
+                  <div className="text-sm font-medium text-zinc-300">ตัวละคร</div>
+                  <div className="text-sm text-white">
+                    {project.character.gender === 'male' ? 'ชาย' : 'หญิง'},
+                    {' '}{ETHNICITIES.find(e => e.id === project.character.ethnicity)?.label}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <Film className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                <div>
+                  <div className="text-sm font-medium text-zinc-300">ความยาว</div>
+                  <div className="text-sm text-white">{project.videoLength} วินาที ({project.videoLength / 8} คลิป)</div>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <Music className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                <div>
+                  <div className="text-sm font-medium text-zinc-300">สคริปต์</div>
+                  <div className="text-sm text-zinc-400 line-clamp-2">{project.script}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="space-y-3">
+            {resultVideo && (
+              <a
+                href={resultVideo.url}
+                download={`tiktok-${project.product.name}-${Date.now()}.mp4`}
+                className="w-full bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors"
+              >
+                <Download className="w-5 h-5" />
+                ดาวน์โหลดวิดีโอ
+              </a>
+            )}
+            <button
+              onClick={resetFlow}
+              className="w-full bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors border border-white/10"
+            >
+              <RotateCcw className="w-5 h-5" />
+              สร้างวิดีโอใหม่
+            </button>
+          </div>
+
+          {/* Tips */}
+          <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+            <p className="text-xs text-blue-400">
+              💡 <strong>เคล็ดลับ:</strong> วิดีโอนี้พร้อมอัพโหลดไปยัง TikTok, Facebook, Instagram หรือแพลตฟอร์มอื่นๆ ได้ทันที!
+            </p>
           </div>
         </div>
       </div>
