@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, Image as ImageIcon, Loader2, AlertCircle, Upload, X } from 'lucide-react';
+import { Sparkles, Image as ImageIcon, Loader2, AlertCircle, Upload, X, Download } from 'lucide-react';
 import { IMAGE_ASPECT_RATIOS, COSTS } from '../constants';
 import { generateImage } from '../services/geminiService';
 import { AssetType, GeneratedAsset } from '../types';
@@ -16,6 +16,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ credits, deductCredits,
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [referenceImage, setReferenceImage] = useState<{ data: string; mimeType: string; preview: string } | null>(null);
+  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -44,6 +45,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ credits, deductCredits,
 
     setLoading(true);
     setError(null);
+    setGeneratedImage(null);
 
     try {
       const imageUrl = await generateImage(
@@ -63,12 +65,23 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ credits, deductCredits,
 
       addAsset(newAsset);
       deductCredits(COSTS.IMAGE);
-      // setPrompt(''); // Keep prompt for easy regeneration
+      setGeneratedImage(imageUrl);
     } catch (err: any) {
       setError(err.message || 'Failed to generate image');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDownload = () => {
+    if (!generatedImage) return;
+
+    const link = document.createElement('a');
+    link.href = generatedImage;
+    link.download = `generated-${Date.now()}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
@@ -149,6 +162,30 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ credits, deductCredits,
               </button>
             </div>
           </div>
+
+          {/* Generated Image Display */}
+          {generatedImage && (
+            <div className="bg-surface border border-white/5 rounded-2xl p-6 animate-fade-in">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-white">Generated Image</h3>
+                <button
+                  onClick={handleDownload}
+                  className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary/80 transition-colors"
+                >
+                  <Download className="w-4 h-4" />
+                  Download
+                </button>
+              </div>
+              <img
+                src={generatedImage}
+                alt="Generated"
+                className="w-full h-auto rounded-xl border border-white/10"
+              />
+              <p className="text-xs text-zinc-500 mt-3">
+                ✅ Image saved to Gallery
+              </p>
+            </div>
+          )}
 
           {error && (
             <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl flex items-center space-x-2">

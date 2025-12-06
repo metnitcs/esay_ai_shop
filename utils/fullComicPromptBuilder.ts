@@ -32,6 +32,15 @@ CHARACTERS: ${characterDescs || 'Create appropriate characters for this story'}
 STORY PANELS:
 ${panelDescriptions}
 
+🔴 CRITICAL TEXT REQUIREMENTS - READ CAREFULLY:
+- ALL text in speech bubbles MUST be in THAI language (ภาษาไทย) ONLY
+- ALL dialogue MUST be in THAI language (ภาษาไทย) ONLY  
+- ALL sound effects MUST use THAI onomatopoeia (e.g., "ปัง!" not "BANG!", "โครม!" not "CRASH!")
+- NO English words allowed anywhere in the comic
+- Use clear, readable Thai fonts for all text
+- Thai text must be grammatically correct and natural
+- Make sure Thai characters are properly rendered and legible
+
 TECHNICAL REQUIREMENTS:
 - This must be a SINGLE IMAGE containing all ${layout?.panels} panels
 - Each panel should be clearly separated with borders/gutters
@@ -45,6 +54,8 @@ TECHNICAL REQUIREMENTS:
 - Clean, readable composition in each panel
 - Include visual comedy elements (sweat drops, shock lines, speed lines, etc.)
 - Keep backgrounds simple but supportive
+
+ABSOLUTE REQUIREMENT: Every single word of text visible in this comic MUST be in Thai language (ภาษาไทย). This is non-negotiable!
 
 CRITICAL: Generate this as ONE COMPLETE IMAGE with all panels arranged as specified, NOT as separate images.`;
 
