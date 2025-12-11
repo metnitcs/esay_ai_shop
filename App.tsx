@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import Sidebar from './components/Sidebar';
 import ImageGenerator from './components/ImageGenerator';
+import { uploadBase64Image } from './utils/storageUtils';
 import VideoGenerator from './components/VideoGenerator';
 import ImageAnalyzer from './components/ImageAnalyzer';
 import TikTokCreator from './components/TikTokCreator';
@@ -150,10 +151,24 @@ const App: React.FC = () => {
     setAssets(prev => [asset, ...prev]); // Optimistic
 
     try {
+      let assetUrl = asset.url;
+
+      // Upload to R2 if it's a base64 string
+      if (assetUrl && assetUrl.startsWith('data:')) {
+        try {
+          // Determine folder based on asset type
+          const folder = asset.type === 'VIDEO' ? 'videos' : 'generated';
+          assetUrl = await uploadBase64Image(assetUrl, 'assets', folder);
+        } catch (err) {
+          console.error("Failed to upload asset to storage, saving directly (might fail if too large)", err);
+          // Fallback: stick with base64 if upload fails, though DB might reject it
+        }
+      }
+
       const dbAsset = {
         user_id: session.user.id,
         type: asset.type,
-        url: asset.url,
+        url: assetUrl,
         prompt: asset.prompt,
         aspect_ratio: asset.aspectRatio,
         created_at: new Date(asset.createdAt).toISOString()
