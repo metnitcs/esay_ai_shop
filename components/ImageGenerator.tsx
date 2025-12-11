@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Sparkles, Image as ImageIcon, Loader2, AlertCircle, Upload, X, Download } from 'lucide-react';
 import { IMAGE_ASPECT_RATIOS, COSTS } from '../constants';
 import { generateImage } from '../services/geminiService';
+import { generateId } from '../utils/uuid';
 import { AssetType, GeneratedAsset } from '../types';
 
 interface ImageGeneratorProps {
@@ -55,7 +56,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ credits, deductCredits,
       );
 
       const newAsset: GeneratedAsset = {
-        id: crypto.randomUUID(),
+        id: generateId(),
         type: AssetType.IMAGE,
         url: imageUrl,
         prompt: prompt,
@@ -208,8 +209,8 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ credits, deductCredits,
                       key={ratio.value}
                       onClick={() => setAspectRatio(ratio.value)}
                       className={`px-3 py-2 rounded-lg text-xs border transition-all ${aspectRatio === ratio.value
-                          ? 'bg-primary/20 border-primary text-white'
-                          : 'bg-background border-white/5 text-zinc-400 hover:border-white/20'
+                        ? 'bg-primary/20 border-primary text-white'
+                        : 'bg-background border-white/5 text-zinc-400 hover:border-white/20'
                         }`}
                     >
                       {ratio.label}

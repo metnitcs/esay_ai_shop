@@ -1,4 +1,5 @@
 import { ComicCharacter } from '../types';
+import { generateId } from './uuid';
 
 const STORAGE_KEY = 'esay_ai_comic_characters';
 
@@ -21,7 +22,7 @@ export const getSavedCharacters = (): ComicCharacter[] => {
 export const saveCharacter = (character: Omit<ComicCharacter, 'id' | 'createdAt'>): ComicCharacter => {
     const newCharacter: ComicCharacter = {
         ...character,
-        id: crypto.randomUUID(),
+        id: generateId(),
         createdAt: Date.now(),
     };
 

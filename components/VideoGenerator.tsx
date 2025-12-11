@@ -3,6 +3,7 @@ import { Video, Sparkles, Loader2, AlertCircle, Lock, Upload, X } from 'lucide-r
 import { VIDEO_ASPECT_RATIOS, COSTS } from '../constants';
 import { generateVideo, checkVeoAuth, promptVeoAuth } from '../services/geminiService';
 import { AssetType, GeneratedAsset } from '../types';
+import { generateId } from '../utils/uuid';
 
 interface VideoGeneratorProps {
   credits: number;
@@ -16,9 +17,9 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({ credits, deductCredits,
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasAuth, setHasAuth] = useState(false);
-  
+
   // Image to Video state
-  const [selectedImage, setSelectedImage] = useState<{data: string, mimeType: string} | null>(null);
+  const [selectedImage, setSelectedImage] = useState<{ data: string, mimeType: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -30,7 +31,7 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({ credits, deductCredits,
       const authorized = await checkVeoAuth();
       setHasAuth(authorized);
     } catch (e) {
-      setHasAuth(true); 
+      setHasAuth(true);
     }
   };
 
@@ -80,15 +81,15 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({ credits, deductCredits,
       setError(`Insufficient credits. You need ${COSTS.VIDEO} credits.`);
       return;
     }
-    
+
     setLoading(true);
     setError(null);
 
     try {
       const videoUrl = await generateVideo(prompt, aspectRatio, selectedImage || undefined);
-      
+
       const newAsset: GeneratedAsset = {
-        id: crypto.randomUUID(),
+        id: generateId(),
         type: AssetType.VIDEO,
         url: videoUrl,
         prompt: prompt || "Image-to-Video",
@@ -127,16 +128,16 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({ credits, deductCredits,
           <div>
             <h3 className="text-lg font-semibold text-white mb-1">Authorization Required</h3>
             <p className="text-zinc-400 text-sm">To use Veo, you must select a valid paid API key from Google AI Studio.</p>
-            <a 
-              href="https://ai.google.dev/gemini-api/docs/billing" 
-              target="_blank" 
+            <a
+              href="https://ai.google.dev/gemini-api/docs/billing"
+              target="_blank"
               rel="noreferrer"
               className="text-xs text-primary hover:text-primaryHover underline mt-2 block"
             >
               Learn about billing
             </a>
           </div>
-          <button 
+          <button
             onClick={handleAuth}
             className="px-6 py-3 bg-primary text-white font-semibold rounded-xl hover:bg-primaryHover transition-colors flex items-center gap-2"
           >
@@ -149,40 +150,40 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({ credits, deductCredits,
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
           <div className={`bg-surface border border-white/5 rounded-2xl p-6 relative ${!hasAuth ? 'opacity-50 pointer-events-none' : ''}`}>
-            
+
             {/* Image Upload Area */}
             <div className="mb-4">
-               <label className="block text-sm font-medium text-zinc-300 mb-2">Starting Image (Optional)</label>
-               {!selectedImage ? (
-                 <div 
-                    onClick={() => fileInputRef.current?.click()}
-                    className="w-full h-24 border-2 border-dashed border-white/10 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-accent/50 hover:bg-white/5 transition-all group"
-                 >
-                   <Upload className="w-6 h-6 text-zinc-500 group-hover:text-accent mb-2" />
-                   <span className="text-xs text-zinc-500 group-hover:text-zinc-300">Click to upload reference image</span>
-                   <input 
-                      type="file" 
-                      ref={fileInputRef}
-                      className="hidden" 
-                      accept="image/png, image/jpeg, image/webp"
-                      onChange={handleImageUpload}
-                   />
-                 </div>
-               ) : (
-                 <div className="relative w-24 h-24 rounded-xl overflow-hidden border border-white/10 group">
-                    <img 
-                      src={`data:${selectedImage.mimeType};base64,${selectedImage.data}`} 
-                      className="w-full h-full object-cover" 
-                      alt="Reference" 
-                    />
-                    <button 
-                      onClick={() => { setSelectedImage(null); if(fileInputRef.current) fileInputRef.current.value = ''; }}
-                      className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <X className="w-6 h-6 text-white" />
-                    </button>
-                 </div>
-               )}
+              <label className="block text-sm font-medium text-zinc-300 mb-2">Starting Image (Optional)</label>
+              {!selectedImage ? (
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full h-24 border-2 border-dashed border-white/10 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-accent/50 hover:bg-white/5 transition-all group"
+                >
+                  <Upload className="w-6 h-6 text-zinc-500 group-hover:text-accent mb-2" />
+                  <span className="text-xs text-zinc-500 group-hover:text-zinc-300">Click to upload reference image</span>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    accept="image/png, image/jpeg, image/webp"
+                    onChange={handleImageUpload}
+                  />
+                </div>
+              ) : (
+                <div className="relative w-24 h-24 rounded-xl overflow-hidden border border-white/10 group">
+                  <img
+                    src={`data:${selectedImage.mimeType};base64,${selectedImage.data}`}
+                    className="w-full h-full object-cover"
+                    alt="Reference"
+                  />
+                  <button
+                    onClick={() => { setSelectedImage(null); if (fileInputRef.current) fileInputRef.current.value = ''; }}
+                    className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X className="w-6 h-6 text-white" />
+                  </button>
+                </div>
+              )}
             </div>
 
             <label className="block text-sm font-medium text-zinc-300 mb-2">Video Prompt</label>
@@ -192,7 +193,7 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({ credits, deductCredits,
               placeholder="Describe the motion: A cinematic drone shot, panning slowly..."
               className="w-full h-32 bg-background border border-white/10 rounded-xl p-4 text-white placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-accent/50 resize-none transition-all"
             />
-            
+
             <div className="flex justify-between items-center mt-4">
               <span className="text-xs text-zinc-500">Cost: {COSTS.VIDEO} Credits</span>
               <button
@@ -226,7 +227,7 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({ credits, deductCredits,
         <div className={`space-y-6 ${!hasAuth ? 'opacity-50 pointer-events-none' : ''}`}>
           <div className="bg-surface border border-white/5 rounded-2xl p-6">
             <h3 className="text-lg font-semibold text-white mb-4">Settings</h3>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-zinc-400 mb-2">Aspect Ratio</label>
@@ -235,11 +236,10 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({ credits, deductCredits,
                     <button
                       key={ratio.value}
                       onClick={() => setAspectRatio(ratio.value)}
-                      className={`px-3 py-2 rounded-lg text-sm border transition-all ${
-                        aspectRatio === ratio.value
+                      className={`px-3 py-2 rounded-lg text-sm border transition-all ${aspectRatio === ratio.value
                           ? 'bg-accent/20 border-accent text-white'
                           : 'bg-background border-white/5 text-zinc-400 hover:border-white/20'
-                      }`}
+                        }`}
                     >
                       {ratio.label}
                     </button>
@@ -252,7 +252,7 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({ credits, deductCredits,
           <div className="bg-gradient-to-b from-accent/10 to-transparent border border-accent/20 rounded-2xl p-6">
             <h3 className="text-sm font-semibold text-accent mb-2">Veo Capabilities</h3>
             <p className="text-xs text-zinc-400 leading-relaxed mb-2">
-              Veo creates high-quality 720p videos. Generation typically takes 30-60 seconds. 
+              Veo creates high-quality 720p videos. Generation typically takes 30-60 seconds.
             </p>
             <p className="text-xs text-zinc-400 leading-relaxed">
               <strong>Tip:</strong> Upload an image to animate it, or just use text to create from scratch.

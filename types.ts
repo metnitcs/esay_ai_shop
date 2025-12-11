@@ -13,7 +13,8 @@ export interface UserProfile {
 
 export enum AssetType {
   IMAGE = 'IMAGE',
-  VIDEO = 'VIDEO'
+  VIDEO = 'VIDEO',
+  CHARACTER = 'CHARACTER' // Helper type for saving comic characters
 }
 
 export interface GeneratedAsset {

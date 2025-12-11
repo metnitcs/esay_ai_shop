@@ -22,37 +22,34 @@ const App: React.FC = () => {
   const [connectionError, setConnectionError] = useState(false);
 
   useEffect(() => {
-    const initSession = async () => {
-      try {
-        const { data, error } = await supabase.auth.getSession();
-        if (error) {
-          console.error("Session init error:", error);
-          // Don't block app, just show auth page
-          setLoading(false);
-          return;
+    // Safety timeout to prevent infinite loading
+    const timer = setTimeout(() => {
+      setLoading((currentLoading) => {
+        if (currentLoading) {
+          console.error("Auth check timed out");
+          setConnectionError(true);
+          return false;
         }
+        return currentLoading;
+      });
+    }, 8000); // 8 seconds timeout
 
-        setSession(data.session);
-        if (data.session) {
-          await fetchUserData(data.session.user.id);
-        } else {
-          setLoading(false);
-        }
-      } catch (err) {
-        console.error("Critical Supabase connection error:", err);
-        setConnectionError(true);
-        setLoading(false);
-      }
-    };
-
-    initSession();
-
+    // Use only onAuthStateChange - it fires initial state automatically
+    // This prevents duplicate fetchUserData calls (race condition)
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      clearTimeout(timer); // Clear timeout if auth responds
       setSession(session);
+
       if (session) {
-        fetchUserData(session.user.id);
+        try {
+          await fetchUserData(session.user.id);
+        } catch (err) {
+          console.error("Critical Supabase connection error:", err);
+          setConnectionError(true);
+          setLoading(false);
+        }
       } else {
         setUserProfile(null);
         setAssets([]);
@@ -60,7 +57,10 @@ const App: React.FC = () => {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timer);
+    };
   }, []);
 
   const fetchUserData = async (userId: string) => {
@@ -108,11 +108,14 @@ const App: React.FC = () => {
         .order('created_at', { ascending: false });
 
       if (userAssets) {
-        const mappedAssets: GeneratedAsset[] = userAssets.map((a: any) => ({
-          ...a,
-          createdAt: new Date(a.created_at).getTime(),
-          // Ensure prompts and urls map correctly if column names differ
-        }));
+        // Filter out CHARACTER assets so they don't clutter the main gallery
+        // They are managed separately in ComicCreator
+        const mappedAssets: GeneratedAsset[] = userAssets
+          .filter((a: any) => a.type !== 'CHARACTER')
+          .map((a: any) => ({
+            ...a,
+            createdAt: new Date(a.created_at).getTime(),
+          }));
         setAssets(mappedAssets);
       }
     } catch (e) {
@@ -193,10 +196,28 @@ const App: React.FC = () => {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-8 text-center">
         <AlertTriangle className="w-12 h-12 text-yellow-500 mb-4" />
-        <h2 className="text-2xl font-bold text-white mb-2">Connection Error</h2>
-        <p className="text-zinc-400 max-w-md">
-          Could not connect to Supabase. Please ensure your <code>SUPABASE_URL</code> and <code>SUPABASE_KEY</code> environment variables are set correctly.
+        <h2 className="text-2xl font-bold text-white mb-2">Connection Issue</h2>
+        <p className="text-zinc-400 max-w-md mb-6">
+          Taking too long to connect or connection failed. Please check your internet or configuration.
         </p>
+        <div className="flex gap-4">
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primaryHover transition-colors"
+          >
+            Retry
+          </button>
+          <button
+            onClick={async () => {
+              await supabase.auth.signOut();
+              localStorage.clear();
+              window.location.reload();
+            }}
+            className="px-4 py-2 bg-surfaceHighlight text-zinc-300 rounded-lg hover:bg-zinc-700 transition-colors"
+          >
+            Force Logout & Reset
+          </button>
+        </div>
       </div>
     );
   }
@@ -215,7 +236,7 @@ const App: React.FC = () => {
             addAsset={handleAddAsset}
           />
         );
-      case 'comic-creator':  // เพิ่ม case ใหม่นี้
+      case 'comic-creator':
         return (
           <ComicCreator
             credits={credits}
@@ -271,8 +292,14 @@ const App: React.FC = () => {
         onLogout={handleLogout}
       />
 
-      <main className="flex-1 overflow-y-auto relative bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-900 via-background to-background">
-        <div className="min-h-full">
+      <main className="flex-1 overflow-y-auto relative bg-deep-space text-textMain">
+        {/* Subtle background glow effects */}
+        <div className="fixed top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
+          <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-primary/10 rounded-full blur-[100px] animate-pulse-slow" />
+          <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-secondary/10 rounded-full blur-[100px] animate-pulse-slow" style={{ animationDelay: '2s' }} />
+        </div>
+
+        <div className="min-h-full relative z-10">
           {renderContent()}
         </div>
       </main>

@@ -5,6 +5,7 @@ import { ETHNICITIES, SKIN_TONES, BODY_TYPES, CAPTION_STYLES, COSTS, PRODUCT_TYP
 import { GeneratedAsset, AssetType, ProductInfo, CharacterInfo, TikTokProject } from '../types';
 import { generateImage, generateScript, generateVideo, checkVeoAuth, promptVeoAuth } from '../services/geminiService';
 import { buildImagePrompt, buildVideoPrompt } from '../utils/promptBuilder';
+import { generateId } from '../utils/uuid';
 
 interface TikTokCreatorProps {
   credits: number;
@@ -161,7 +162,7 @@ const TikTokCreator: React.FC<TikTokCreatorProps> = ({ credits, deductCredits, a
       }
 
       const newAssets: GeneratedAsset[] = imageUrls.map(url => ({
-        id: crypto.randomUUID(),
+        id: generateId(),
         type: AssetType.IMAGE,
         url: url,
         prompt: basePrompt,
@@ -258,7 +259,7 @@ const TikTokCreator: React.FC<TikTokCreatorProps> = ({ credits, deductCredits, a
 
       // Save ALL clips as separate assets
       const videoAssets: GeneratedAsset[] = videoClips.map((url, index) => ({
-        id: crypto.randomUUID(),
+        id: generateId(),
         type: AssetType.VIDEO,
         url: url,
         prompt: `TikTok Video for ${project.product.name} - Clip ${index + 1}/${clipCount}`,

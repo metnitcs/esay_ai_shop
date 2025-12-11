@@ -5,7 +5,9 @@ import { GeneratedAsset, AssetType, ComicProject, ComicCharacter, ComicPanel } f
 import { generatePanelBreakdown, generateComicPanel, generateImage } from '../services/geminiService';
 import { buildComicPanelPrompt } from '../utils/comicPromptBuilder';
 import { buildFullComicPrompt } from '../utils/fullComicPromptBuilder';
-import { getSavedCharacters, saveCharacter, deleteCharacter } from '../utils/characterLibrary';
+import { supabase } from '../supabaseClient';
+import { generateId } from '../utils/uuid';
+import { uploadBase64Image } from '../utils/storageUtils';
 
 interface ComicCreatorProps {
     credits: number;
@@ -34,9 +36,54 @@ const ComicCreator: React.FC<ComicCreatorProps> = ({ credits, deductCredits, add
     const [generatingCharacterImage, setGeneratingCharacterImage] = useState(false);
 
     // Load character library on mount
+    // Load character library on mount
     useEffect(() => {
-        setCharacterLibrary(getSavedCharacters());
+        fetchCharacters();
     }, []);
+
+    const fetchCharacters = async () => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const { data, error } = await supabase
+                .from('assets')
+                .select('*')
+                .eq('user_id', user.id)
+                .eq('type', AssetType.CHARACTER)
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+
+            if (data) {
+                const mappedChars: ComicCharacter[] = data.map(asset => {
+                    // Try to parse description and name from 'prompt' field which stores JSON
+                    let charData = { name: 'Unknown', description: '' };
+                    try {
+                        charData = JSON.parse(asset.prompt);
+                    } catch (e) {
+                        // Fallback for old data or plain text
+                        charData.description = asset.prompt;
+                    }
+
+                    return {
+                        id: asset.id,
+                        name: charData.name,
+                        description: charData.description,
+                        visualReference: asset.url ? {
+                            data: '', // Not needed for display if we have preview aka url
+                            mimeType: 'image/png', // Assumption
+                            preview: asset.url
+                        } : undefined,
+                        createdAt: new Date(asset.created_at).getTime()
+                    };
+                });
+                setCharacterLibrary(mappedChars);
+            }
+        } catch (error) {
+            console.error('Error fetching characters:', error);
+        }
+    };
 
     // Get current layout config
     const currentLayout = COMIC_LAYOUTS.find(l => l.id === project.layout);
@@ -87,26 +134,79 @@ const ComicCreator: React.FC<ComicCreatorProps> = ({ credits, deductCredits, add
         }
     };
 
-    const handleSaveCharacter = () => {
+    const handleSaveCharacter = async () => {
         if (!newCharacter.name || !newCharacter.description) {
             setError('กรุณากรอกชื่อและรายละเอียดตัวละคร');
             return;
         }
 
-        const saved = saveCharacter(newCharacter);
-        setCharacterLibrary(getSavedCharacters());
-        setNewCharacter({ name: '', description: '' });
-        setShowCharacterForm(false);
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                setError('กรุณาเข้าสู่ระบบก่อนบันทึก');
+                return;
+            }
+
+            // Store metadata (name, description) in prompt field as JSON string
+            const metadata = JSON.stringify({
+                name: newCharacter.name,
+                description: newCharacter.description
+            });
+
+            let imageUrl = newCharacter.visualReference?.preview || '';
+
+            // Upload to Supabase Storage if it's base64
+            if (imageUrl && imageUrl.startsWith('data:')) {
+                try {
+                    imageUrl = await uploadBase64Image(imageUrl, 'assets', 'characters');
+                } catch (uploadErr) {
+                    console.error('Failed to upload character image:', uploadErr);
+                    throw new Error('ไม่สามารถอัพโหลดรูปภาพได้ กรุณาลองใหม่อีกครั้ง');
+                }
+            }
+
+            const { error } = await supabase
+                .from('assets')
+                .insert([{
+                    user_id: user.id,
+                    type: AssetType.CHARACTER,
+                    url: imageUrl,
+                    prompt: metadata,
+                    aspect_ratio: '1:1',
+                    created_at: new Date().toISOString()
+                }]);
+
+            if (error) throw error;
+
+            // Refresh library
+            fetchCharacters();
+            setNewCharacter({ name: '', description: '' });
+            setShowCharacterForm(false);
+        } catch (err: any) {
+            console.error('Save failed:', err);
+            setError('บันทึกตัวละครไม่สำเร็จ: ' + err.message);
+        }
     };
 
-    const handleDeleteCharacter = (id: string) => {
-        deleteCharacter(id);
-        setCharacterLibrary(getSavedCharacters());
-        // Remove from selected if it was selected
-        setProject(prev => ({
-            ...prev,
-            selectedCharacters: prev.selectedCharacters.filter(c => c.id !== id)
-        }));
+    const handleDeleteCharacter = async (id: string) => {
+        try {
+            const { error } = await supabase
+                .from('assets')
+                .delete()
+                .eq('id', id);
+
+            if (error) throw error;
+
+            // Update local state
+            setCharacterLibrary(prev => prev.filter(c => c.id !== id));
+            setProject(prev => ({
+                ...prev,
+                selectedCharacters: prev.selectedCharacters.filter(c => c.id !== id)
+            }));
+        } catch (err) {
+            console.error('Delete failed:', err);
+            setError('ลบตัวละครไม่สำเร็จ');
+        }
     };
 
     const toggleCharacterSelection = (character: ComicCharacter) => {
@@ -185,7 +285,7 @@ const ComicCreator: React.FC<ComicCreatorProps> = ({ credits, deductCredits, add
             );
 
             const asset: GeneratedAsset = {
-                id: crypto.randomUUID(),
+                id: generateId(),
                 type: AssetType.IMAGE,
                 url: imageUrl,
                 prompt: fullPrompt,
