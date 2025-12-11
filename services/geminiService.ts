@@ -8,7 +8,7 @@ export const checkVeoAuth = async (): Promise<boolean> => {
     return await window.aistudio.hasSelectedApiKey();
   }
   // Fallback for environments where the window extension isn't present (dev mostly)
-  return !!process.env.API_KEY;
+  return !!import.meta.env.VITE_GEMINI_API_KEY;
 };
 
 export const promptVeoAuth = async (): Promise<void> => {
@@ -19,7 +19,7 @@ export const promptVeoAuth = async (): Promise<void> => {
 
 export const generateImage = async (prompt: string, aspectRatio: string, referenceImage?: { data: string, mimeType: string }, secondaryImage?: { data: string, mimeType: string }): Promise<string> => {
   // Always create a new instance to ensure latest keys are used
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
 
   const parts: any[] = [];
 
@@ -86,7 +86,7 @@ export const generateImage = async (prompt: string, aspectRatio: string, referen
 
 export const generateVideo = async (prompt: string, aspectRatio: string, image?: { data: string, mimeType: string }): Promise<string> => {
   // Important: Veo requires a specific paid key selection in some environments
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
 
   const payload: any = {
     model: MODELS.VIDEO,
@@ -160,15 +160,21 @@ export const generateVideo = async (prompt: string, aspectRatio: string, image?:
 
   console.log("Video URI found:", videoUri);
 
-  // Fetch the actual bytes to create a blob URL for playback
+  // Fetch the actual bytes and convert to data URL for storage
   // We must append the API Key manually as per documentation
-  const fetchResponse = await fetch(`${videoUri}&key=${process.env.API_KEY}`);
+  const fetchResponse = await fetch(`${videoUri}&key=${import.meta.env.VITE_GEMINI_API_KEY}`);
   const blob = await fetchResponse.blob();
-  return URL.createObjectURL(blob);
+  
+  // Convert blob to data URL for storage and display
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.readAsDataURL(blob);
+  });
 };
 
 export const analyzeImage = async (prompt: string, image: { data: string, mimeType: string }): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
 
   const response = await ai.models.generateContent({
     model: MODELS.ANALYSIS,
@@ -184,7 +190,7 @@ export const analyzeImage = async (prompt: string, image: { data: string, mimeTy
 };
 
 export const generateScript = async (productName: string, productDesc: string, targetAudience: string, price?: string, characterGender?: string, characterEthnicity?: string): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
 
   let prompt = `เขียนสคริปต์วิดีโอ TikTok/UGC สำหรับสินค้าชื่อ "${productName}"
   รายละเอียดสินค้า: "${productDesc}"
@@ -227,7 +233,7 @@ export const generatePanelBreakdown = async (
   numPanels: number,
   characters: { name: string; description: string }[]
 ): Promise<string[]> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
 
   const characterList = characters.length > 0
     ? characters.map(c => `${c.name}: ${c.description}`).join(', ')
@@ -323,7 +329,7 @@ export const generateComicPanel = async (
   aspectRatio: string = '1:1',
   characterReferences?: { data: string; mimeType: string }[]
 ): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
 
   const parts: any[] = [];
 

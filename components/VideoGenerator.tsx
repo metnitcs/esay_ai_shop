@@ -4,6 +4,7 @@ import { VIDEO_ASPECT_RATIOS, COSTS } from '../constants';
 import { generateVideo, checkVeoAuth, promptVeoAuth } from '../services/geminiService';
 import { AssetType, GeneratedAsset } from '../types';
 import { generateId } from '../utils/uuid';
+import { supabase } from '../supabaseClient';
 
 interface VideoGeneratorProps {
   credits: number;
@@ -86,6 +87,12 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({ credits, deductCredits,
     setError(null);
 
     try {
+      // ดึงข้อมูล user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('กรุณาเข้าสู่ระบบก่อนใช้งาน');
+      }
+
       const videoUrl = await generateVideo(prompt, aspectRatio, selectedImage || undefined);
 
       const newAsset: GeneratedAsset = {
@@ -94,7 +101,8 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({ credits, deductCredits,
         url: videoUrl,
         prompt: prompt || "Image-to-Video",
         createdAt: Date.now(),
-        aspectRatio: aspectRatio
+        aspectRatio: aspectRatio,
+        userId: user.id
       };
 
       addAsset(newAsset);
@@ -102,9 +110,9 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({ credits, deductCredits,
     } catch (err: any) {
       if (err.message && err.message.includes("Requested entity was not found")) {
         setHasAuth(false);
-        setError("Session expired or invalid key. Please re-authenticate.");
+        setError("เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่อีกครั้ง");
       } else {
-        setError(err.message || 'Failed to generate video');
+        setError(err.message || 'ไม่สามารถสร้างวิดีโอได้');
       }
     } finally {
       setLoading(false);

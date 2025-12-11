@@ -6,6 +6,7 @@ import { GeneratedAsset, AssetType, ProductInfo, CharacterInfo, TikTokProject } 
 import { generateImage, generateScript, generateVideo, checkVeoAuth, promptVeoAuth } from '../services/geminiService';
 import { buildImagePrompt, buildVideoPrompt } from '../utils/promptBuilder';
 import { generateId } from '../utils/uuid';
+import { supabase } from '../supabaseClient';
 
 interface TikTokCreatorProps {
   credits: number;
@@ -117,7 +118,7 @@ const TikTokCreator: React.FC<TikTokCreatorProps> = ({ credits, deductCredits, a
   const generateAssets = async () => {
     // Logic for Step 2 -> 3
     if (credits < COSTS.IMAGE * 3) {
-      setError(`เครดิตไม่เพียงพอ การสร้างภาพ 3 แบบใช้เครดิต ${COSTS.IMAGE * 3} เครดิต`);
+      setError(`เครดิตไม่เพียงพอ การสร้างภาพ TikTok 3 แบบใช้เครดิต ${COSTS.IMAGE * 3} เครดิต`);
       return;
     }
 
@@ -161,13 +162,18 @@ const TikTokCreator: React.FC<TikTokCreatorProps> = ({ credits, deductCredits, a
         }
       }
 
+      // ดึงข้อมูล user
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = user?.id || 'anonymous';
+
       const newAssets: GeneratedAsset[] = imageUrls.map(url => ({
         id: generateId(),
         type: AssetType.IMAGE,
         url: url,
-        prompt: basePrompt,
+        prompt: `TikTok UGC: ${basePrompt}`,
         createdAt: Date.now(),
-        aspectRatio: '9:16'
+        aspectRatio: '9:16',
+        userId: userId
       }));
 
       // Add to global assets just in case user drops off
@@ -182,7 +188,7 @@ const TikTokCreator: React.FC<TikTokCreatorProps> = ({ credits, deductCredits, a
       }));
 
     } catch (err: any) {
-      setError(err.message || "ไม่สามารถสร้างเนื้อหาได้ กรุณาลองใหม่อีกครั้ง");
+      setError(err.message || "ไม่สามารถสร้างเนื้อหา TikTok ได้ กรุณาลองใหม่อีกครั้ง");
     } finally {
       setLoading(false);
     }
@@ -209,7 +215,7 @@ const TikTokCreator: React.FC<TikTokCreatorProps> = ({ credits, deductCredits, a
     const totalCost = voiceoverCost + digitalVoiceCost + videoCost;
 
     if (credits < totalCost) {
-      setError(`เครดิตไม่พอ ต้องการ ${totalCost.toFixed(1)} แต่มี ${credits.toFixed(1)} เครดิต`);
+      setError(`เครดิตไม่พอสำหรับ TikTok Video ต้องการ ${totalCost.toFixed(1)} แต่มี ${credits.toFixed(1)} เครดิต`);
       return;
     }
 
@@ -257,14 +263,19 @@ const TikTokCreator: React.FC<TikTokCreatorProps> = ({ credits, deductCredits, a
         }
       }
 
+      // ดึงข้อมูล user อีกครั้ง
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      const currentUserId = currentUser?.id || 'anonymous';
+
       // Save ALL clips as separate assets
       const videoAssets: GeneratedAsset[] = videoClips.map((url, index) => ({
         id: generateId(),
         type: AssetType.VIDEO,
         url: url,
-        prompt: `TikTok Video for ${project.product.name} - Clip ${index + 1}/${clipCount}`,
+        prompt: `TikTok Video: ${project.product.name} - Clip ${index + 1}/${clipCount}`,
         createdAt: Date.now(),
-        aspectRatio: '9:16'
+        aspectRatio: '9:16',
+        userId: currentUserId
       }));
 
       // Add all video assets to gallery
@@ -276,8 +287,8 @@ const TikTokCreator: React.FC<TikTokCreatorProps> = ({ credits, deductCredits, a
       setProject(prev => ({ ...prev, step: 6 })); // Move to success step
 
     } catch (err: any) {
-      console.error("Video generation error:", err);
-      setError(err.message || "ไม่สามารถสร้างวิดีโอได้ กรุณาลองใหม่อีกครั้ง");
+      console.error("TikTok video generation error:", err);
+      setError(err.message || "ไม่สามารถสร้างวิดีโอ TikTok ได้ กรุณาลองใหม่อีกครั้ง");
       setProject(prev => ({ ...prev, step: 4 })); // Go back to settings on error
     } finally {
       setLoading(false);
@@ -955,7 +966,7 @@ const TikTokCreator: React.FC<TikTokCreatorProps> = ({ credits, deductCredits, a
 
         {credits < totalCost && (
           <p className="text-red-400 text-center mt-4 text-sm">
-            เครดิตไม่พอ ต้องการ {totalCost.toFixed(1)} แต่มี {credits.toFixed(1)}
+            เครดิตไม่พอสำหรับ TikTok Video ต้องการ {totalCost.toFixed(1)} แต่มี {credits.toFixed(1)}
           </p>
         )}
         {error && <p className="text-red-400 text-center mt-4 text-sm">{error}</p>}

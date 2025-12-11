@@ -4,6 +4,7 @@ import { IMAGE_ASPECT_RATIOS, COSTS } from '../constants';
 import { generateImage } from '../services/geminiService';
 import { generateId } from '../utils/uuid';
 import { AssetType, GeneratedAsset } from '../types';
+import { supabase } from '../supabaseClient';
 
 interface ImageGeneratorProps {
   credits: number;
@@ -49,6 +50,12 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ credits, deductCredits,
     setGeneratedImage(null);
 
     try {
+      // ดึงข้อมูล user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('กรุณาเข้าสู่ระบบก่อนใช้งาน');
+      }
+
       const imageUrl = await generateImage(
         prompt,
         aspectRatio,
@@ -61,7 +68,8 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({ credits, deductCredits,
         url: imageUrl,
         prompt: prompt,
         createdAt: Date.now(),
-        aspectRatio: aspectRatio
+        aspectRatio: aspectRatio,
+        userId: user.id
       };
 
       addAsset(newAsset);

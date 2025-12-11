@@ -59,7 +59,7 @@
    R2_ACCESS_KEY_ID=your_r2_access_key
    R2_SECRET_ACCESS_KEY=your_r2_secret_key
    R2_BUCKET_NAME=your_r2_bucket_name
-   R2_PUBLIC_DOMAIN=your_custom_domain_or_r2_dev_url
+   R2_PUBLIC_DOMAIN=https://your-custom-domain.com
    ```
 
 4. **Run Locally:**
@@ -69,8 +69,46 @@
 
 ## Key Configuration Notes
 
-- **Storage**: This project uses **AWS SDK v3** to communicate with Cloudflare R2. Ensure your R2 bucket is configured with a public domain or allowed CORS if accessing directly.
-- **Database**: The app expects a `profiles` table and an `assets` table in Supabase. The `assets` table stores the metadata and links to the files in R2.
+- **Storage**: This project uses **AWS SDK v3** to communicate with Cloudflare R2. Files are organized by user ID for better security and management:
+  ```
+  users/{userId}/{assetType}/{optional_folder}/{timestamp}_{uniqueId}.ext
+  ```
+- **Database**: The app expects a `profiles` table and an `assets` table in Supabase. The `assets` table stores metadata and R2 file URLs.
+- **File Organization**: 
+  - `images/` - Generated images from Image Generator
+  - `videos/` - Generated videos from Video Generator  
+  - `characters/` - Comic character references
+  - `tiktok/` - TikTok UGC content
+  - `comics/` - Generated comics and cartoons
+
+## File Storage Structure
+
+The application organizes files in Cloudflare R2 with the following structure:
+
+```
+bucket/
+└── users/
+    └── {userId}/
+        ├── images/          # AI-generated images
+        ├── videos/          # AI-generated videos
+        ├── characters/      # Comic character references
+        │   └── {characterName}/
+        ├── tiktok/          # TikTok UGC content
+        │   └── {productName}/
+        └── comics/          # Generated comics
+            └── {storyTitle}/
+```
+
+Each file is named with: `{timestamp}_{uniqueId}.{extension}`
+
+## User Asset Management
+
+The app includes a comprehensive asset management system:
+
+- **User-specific storage**: All files are organized by user ID
+- **Asset categorization**: Files are grouped by type (images, videos, characters, etc.)
+- **Metadata tracking**: Each asset includes prompt, creation time, and user information
+- **Automatic cleanup**: Failed uploads don't leave orphaned files
 
 ## Deployment
 
@@ -79,3 +117,10 @@ Build the project for production:
 npm run build
 ```
 The output will be in the `dist` directory.
+
+### R2 Bucket Configuration
+
+1. Create a Cloudflare R2 bucket
+2. Configure CORS if needed for direct access
+3. Set up a custom domain (recommended) or use R2.dev domain
+4. Ensure proper access keys have read/write permissions

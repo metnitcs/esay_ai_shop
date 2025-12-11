@@ -7,7 +7,7 @@ import { buildComicPanelPrompt } from '../utils/comicPromptBuilder';
 import { buildFullComicPrompt } from '../utils/fullComicPromptBuilder';
 import { supabase } from '../supabaseClient';
 import { generateId } from '../utils/uuid';
-import { uploadBase64Image } from '../utils/storageUtils';
+import { uploadUserAsset } from '../utils/storageUtils';
 
 interface ComicCreatorProps {
     credits: number;
@@ -155,10 +155,15 @@ const ComicCreator: React.FC<ComicCreatorProps> = ({ credits, deductCredits, add
 
             let imageUrl = newCharacter.visualReference?.preview || '';
 
-            // Upload to Supabase Storage if it's base64
+            // Upload to R2 Storage if it's base64
             if (imageUrl && imageUrl.startsWith('data:')) {
                 try {
-                    imageUrl = await uploadBase64Image(imageUrl, 'assets', 'characters');
+                    imageUrl = await uploadUserAsset(
+                        imageUrl, 
+                        user.id, 
+                        'characters',
+                        { name: newCharacter.name, prompt: newCharacter.description }
+                    );
                 } catch (uploadErr) {
                     console.error('Failed to upload character image:', uploadErr);
                     throw new Error('ไม่สามารถอัพโหลดรูปภาพได้ กรุณาลองใหม่อีกครั้ง');

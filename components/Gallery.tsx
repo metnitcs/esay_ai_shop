@@ -32,10 +32,20 @@ const Gallery: React.FC<GalleryProps> = ({ assets, deleteAsset }) => {
             {/* Asset Content */}
             <div className="relative">
               {asset.type === AssetType.IMAGE ? (
-                <img src={asset.url} alt={asset.prompt} className="w-full h-auto object-cover" />
+                <img 
+                  src={`${asset.url}?t=${Date.now()}`} 
+                  alt={asset.prompt} 
+                  className="w-full h-auto object-cover"
+                  loading="lazy"
+                />
               ) : (
                 <div className="relative w-full aspect-video bg-black">
-                  <video src={asset.url} controls className="w-full h-full object-cover" />
+                  <video 
+                    src={`${asset.url}?t=${Date.now()}`} 
+                    controls 
+                    className="w-full h-full object-cover"
+                    preload="metadata"
+                  />
                 </div>
               )}
               
